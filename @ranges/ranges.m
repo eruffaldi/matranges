@@ -28,6 +28,10 @@ classdef ranges
         % (start,stop,[label])
         function r = ranges(values,n,islabeled)
             if nargin < 2
+                if islogical(values)
+                    r = ranges.fromevents(values);
+                    return;
+                end
                 n = max(values(:,2));
             end
             if nargin < 3
@@ -74,6 +78,14 @@ classdef ranges
                 l = [];
             end
         end    
+        
+        function v = mapvalues(this,values)
+            if size(this.values,1) == 1
+                v = [values(this.values(1)),values(this.values(2))];
+            else
+                v = values(this.values);
+            end
+        end
         
         % converts to labeled, or eventually indexed if labels are missing
         function e = aslabels(this)
