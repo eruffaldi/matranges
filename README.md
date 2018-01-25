@@ -1,16 +1,10 @@
-matranges
-=========
+# matranges #
 
-Small MATLAB toolbox for manipulating data ranges. This allows to extract ranges from labels, logical or raising levels and perform operations
+MATLAB toolbox for manipulating data ranges. This allows to extract ranges from labels, logical or raising levels and perform operations
 
 Two implementations are provided: one as package, one as class
 
-========
-
-
-Range Operations for MATLAB
-by Emanuele Ruffaldi 2010-2011
-------------------------------
+# Details #
 
 Range data is common in many operations, it is a trivial task but this code tries to make some order...
 
@@ -26,9 +20,7 @@ The (start,end) sequence is the most efficient for subset selection, but for rec
 
 Also end can be inside [a,b] or outside the range [a,b). Just a matter of convention. The event logical format is very useful for performing combination of separate range sets.
 
-If 
-
-Operations:
+# Operations #
 
 - conversion among formats, the natural one is [start,end]
 	end2ranges
