@@ -8,7 +8,7 @@
 % - list of changes (new range when value changes)
 % - logical
 %
-% Emanuele Ruffaldi 2011-2014
+% Emanuele Ruffaldi 2011-2017
 classdef ranges
     
     properties
@@ -45,6 +45,12 @@ classdef ranges
         % returns the ranges
         function r = double(this)
             r = this.values;
+        end
+        
+        function r = filterlength(this,minv,maxv)
+            L = this.lengths();
+            r = this;
+            r.values = r.values(L >= minv & L <= maxv,:);
         end
         
         % converts to logical
@@ -159,6 +165,25 @@ classdef ranges
             end
         end
         
+        function r = torangeindex(this)    
+            ra = this.values;
+
+            r = zeros(this.n,1);
+            for I=1:size(ra,1)
+                r(ra(I,1):ra(I,2)) = I;
+            end
+        end
+
+        function r = torangelabel(this)    
+            ra = this.values;
+            assert(size(ra,3) == 2,"should have label");
+
+            r = zeros(this.n,1);
+            for I=1:size(ra,1)
+                r(ra(I,1):ra(I,2)) = ra(I,3);
+            end
+        end
+        
         % returns the target space with the marker of starts
         function r = starts(this)
             n = this.n;
@@ -196,6 +221,98 @@ classdef ranges
             end            
         end
         
+        
+        % joints data with nan, e.g. for plot or line
+        function [I,J,outsize] = compactwithnan_build(this)            
+            S = this.values;
+            L = sum(this.lengths());
+            outsize = size(S,1)-1+L;
+            I = zeros(L,1);
+            J = zeros(L,1);
+            t = 1;
+            j = 1;
+            for k=1:size(S,1)
+                q = S(k,2)-S(k,1);
+                I(j:j+q) = t:t+q; % dest
+                J(j:j+q) = S(k,1):S(k,2); % input
+                j = j + q + 1; % next j is at j+q+1
+                t = t + q + 2; % next starts at t+q+2 due to nan 
+            end
+        end
+        
+        % q = [1:9;2*(1:9)]'
+        % r = ranges.fromlabels([1,2,3,3,3,4,4,4,5]);
+        % Y = r.compactwithnan(q)
+        %
+        % Y has length 11 with splitted nan
+        %
+        % r = r.filterlength(3,10)
+        % Y2 = r.compactwithnan(q) % returns 7 rows
+        % Y3 = r.compact(q);  % returns 6 rows selected
+        %
+        
+        function Y = compactwithnan(this,X,I,outsize)
+            if nargin == 2
+                [I,J,outsize] = compactwithnan_build(this);
+            end
+
+            s = size(X);
+            s(1) = outsize;
+            Y = nan(s);
+            if ~isempty(J)
+                if ndims(X) < 3
+                    Y(I,:) = X(J,:);
+                else
+                    Y(I,:,:) = X(J,:,:);
+                end
+            else
+                if ndims(X) < 3
+                    Y(I,:) = X;
+                else
+                    Y(I,:,:) = X;
+                end
+            end
+        end
+
+        % joints data with nan, e.g. for plot or line
+        function [I,J,outsize] = compact_build(this)            
+            S = this.values;
+            L = this.lengths();
+            outsize = size(S,1)-1+L;
+            I = zeros(L,1);
+            J = zeros(L,1);
+            t = 1;
+            j = 1;
+            for k=1:size(S,1)
+                q = S(k,2)-S(k,1);
+                I(j:j+q) = t:t+q; % dest
+                J(j:j+q) = S(k,1):S(k,2); % input
+                j = j + q + 1; % next j is at j+q+1
+                t = t + q + 1; % next starts at t+q+2 due to nan 
+            end            
+        end
+        
+        function Y = compact(this,X,I,outsize)
+            if nargin == 2
+                [I,J,outsize] = compact_build(this);
+            end
+            s = size(X);
+            s(1) = outsize;
+            Y = nan(s); % or even not initialized
+            if ~isempty(J)
+                if dim(X) < 3
+                    Y(I,:) = X(J,:);
+                else
+                    Y(I,:,:) = X(J,:,:);
+                end
+            else
+                if dim(X) < 3
+                    Y(I,:) = X;
+                else
+                    Y(I,:,:) = X;
+                end
+            end
+        end
         % TODO: rangesintegral
         % TODO: rangesderivation provided functions for acc and vel
         % TODO: ranges2endmark
