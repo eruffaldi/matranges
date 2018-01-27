@@ -277,39 +277,34 @@ classdef ranges
         % joints data with nan, e.g. for plot or line
         function [I,J,outsize] = compact_build(this)            
             S = this.values;
-            L = this.lengths();
+            L = sum(this.lengths());
             outsize = size(S,1)-1+L;
-            I = zeros(L,1);
             J = zeros(L,1);
-            t = 1;
             j = 1;
             for k=1:size(S,1)
                 q = S(k,2)-S(k,1);
-                I(j:j+q) = t:t+q; % dest
                 J(j:j+q) = S(k,1):S(k,2); % input
                 j = j + q + 1; % next j is at j+q+1
-                t = t + q + 1; % next starts at t+q+2 due to nan 
             end            
+            I = [];
         end
         
-        function Y = compact(this,X,I,outsize)
-            if nargin == 2
-                [I,J,outsize] = compact_build(this);
+        function Y = compact(this,X,J)
+            if nargin < 3
+                [~,J,~] = compact_build(this);
             end
-            s = size(X);
-            s(1) = outsize;
-            Y = nan(s); % or even not initialized
             if ~isempty(J)
-                if dim(X) < 3
-                    Y(I,:) = X(J,:);
+                if ndims(X) < 3
+                    % this applies also for table
+                    Y = X(J,:);
                 else
-                    Y(I,:,:) = X(J,:,:);
+                    Y = X(J,:,:);
                 end
             else
-                if dim(X) < 3
-                    Y(I,:) = X;
+                if ndims(X) < 3
+                    Y = X;
                 else
-                    Y(I,:,:) = X;
+                    Y = X;
                 end
             end
         end
