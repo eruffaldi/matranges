@@ -12,7 +12,8 @@ Two operations are specifically useful:
 
 2) compact with nan injection: given an array X creates an array Y separating each range of values with a NaN. This is useful for plot or line
 
-[[concept.png]]
+![Concept and operations](concept.png)
+
 # Details #
 
 Which are the representation or sources of ranges?
