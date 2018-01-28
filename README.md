@@ -16,17 +16,13 @@ Two operations are specifically useful:
 
 # Details #
 
-Which are the representation or sources of ranges?
+The internal representation is a sequence of non-overlapping monotonic intervals expressed by inclusive [start,end] optionally with an associated label. The ranges object can cover all the original space (full) or a subset.
 
-- [start,end] sequence of indices, eventually enforcing to be not overlapping and/or monotonic in start. 
-	- in the case ranges are not overlapping, consecutive and monotonic only start is necessary
-- logical marker of start or end, for consecutive ranges like 0 1 0 0 0 0 1 0 0 0 1 
-- event logical: 1 1 1 1 1 0 0 0 0 1 1 1 1 1
-- marker of group 1 1 1 1 1 2 2 2 2 2 3 3 3 3 3
+Input formats are:
 
-The (start,end) sequence is the most efficient for subset selection, but for reconstructing the other two it requires the full length of the original data.
-
-Also end can be inside [a,b] or outside the range [a,b). Just a matter of convention. The event logical format is very useful for performing combination of separate range sets.
+* list of labels (1 1 1 1 1 2 2 2 2 2 3 3 3 3 3): all label ranges are stored. The output is a full coverage
+* logical (TTTT FFFF T FFFF TT): only true parts are stored as ranges. The output is a partial coverage.
+* logical marker of start, e.g. like diff(time) ~= 0 (F T F F F F T F F F T): create a new range starting at every raising level. The output is a full coverage
 
 # Operations #
 
@@ -47,6 +43,7 @@ Construction by labels, logicals:
 * Label for each range: r.labels()
 * Dump all range data: double(r)
 * Separations between ranges: r.separations()
+* Is Full Coverage: r.isfull()
 
 ## Conversion ##
 

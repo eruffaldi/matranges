@@ -153,6 +153,14 @@ classdef ranges
                 r = ranges.fromlogical(e);
             end
         end
+
+        function b = isfull(this)
+            if isempty(this.values)
+                b = true;
+            else
+                b = sum(this.lengths()) == this.n;
+            end
+        end
         
         function r = torangeindex(this)    
             ra = this.values;
