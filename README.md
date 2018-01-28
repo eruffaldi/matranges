@@ -30,24 +30,43 @@ Also end can be inside [a,b] or outside the range [a,b). Just a matter of conven
 
 # Operations #
 
-- conversion among formats, the natural one is [start,end]
-	end2ranges
-	start2ranges
-	event2ranges
-	ranges2event	
-- enlarge range by given amount
-	enlargeranages(ra,amount)
-- merge ranges that are distant less than given value
-	mergeranges(ra,threshold)
-- velocity estimator based on range margin
-	[V,A] = rangesderive(data,range)
-		It computes velocity and estimation using ranges as boundaries for vel/acc estimator
-- merge of two range sets
-	mergeranges(ra1,ra2)
-- apply function
-	rangefun(fun,ra1)
-		applies range to function calling fun(start,end) 
-- compact
+We document the class version. In the following we use the variable r as the general range object
+
+## Construction ##
+
+Construction by labels, logicals:
+
+  r = ranges.fromlabels(L)
+  r = ranges.fromlogicals(L)
+
+## Information ##
+
+* Obtaining number of ranges: length(r)
+* Lengths of each range: r.lengths()
+* Extent of the original input array: r.extent()
+* Label for each range: r.labels()
+* Dump all range data: double(r)
+* Separations between ranges: r.separations()
+
+## Conversion ##
+
+* To array with start marker: r.starts()
+* To array with end marker: r.ends()
+* To labels: r.torangelabels()
+* To index of range: r.torangeindex() 
+* Compact: r.compact(X)
+* Compact with nan between ranges: r.compactwithnan(X)
+
+## Transformation ##
+
+* Modify extent: r = r.setextent(Lnew)
+* Logically union of two ranges (logical only): r = r.union(ra,rb) 
+* Merge adjacent ranges that are nearer than amount: r = r.merge(threshold)
+* Enlarge each range by amount (also negative): r= r.enlargeranges(amount_per_side)
+
+## Others ##
+
+* Apply a function over each range. A function is called with (start,end): r.applyfun(@(s,e) ...,isuniform)
 
 # Example #
 

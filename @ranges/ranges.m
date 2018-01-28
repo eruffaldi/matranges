@@ -1,5 +1,5 @@
 % Ranges Class
-% ranges manipulation class in matlab
+% ranges manipulation class in Matlab
 %
 % Internal representation: list of (start,inclusive end,label)
 %
@@ -8,7 +8,7 @@
 % - list of changes (new range when value changes)
 % - logical
 %
-% Emanuele Ruffaldi 2011-2017
+% Emanuele Ruffaldi 2011-2018
 classdef ranges
     
     properties
@@ -26,6 +26,8 @@ classdef ranges
         %
         % values is a matrix with ranges along rows and with columns as
         % (start,stop,[label])
+        %
+        % Length n is used for reconstruction
         function r = ranges(values,n,islabeled)
             if nargin < 2
                 if islogical(values)
@@ -84,31 +86,9 @@ classdef ranges
                 l = [];
             end
         end    
+    
         
-        function v = mapvalues(this,values)
-            if size(this.values,1) == 1
-                v = [values(this.values(1)),values(this.values(2))];
-            else
-                v = values(this.values);
-            end
-        end
-        
-        % converts to labeled, or eventually indexed if labels are missing
-        function e = aslabels(this)
-             r = this.values;
-             e = zeros(this.n,1);
-
-            if size(r,2) == 3
-                for I=1:size(r,1)
-                    e(r(I,1):r(I,2)) = r(I,3);
-                end
-            else
-
-                for I=1:size(r,1)
-                    e(r(I,1):r(I,2)) = I;
-                end
-            end
-        end       
+ 
         
         % merges two ranges, assuming they are logical        
         function r = union(this,other)
@@ -135,9 +115,18 @@ classdef ranges
         
         % function enlarges the ranges by amount
         function this = enlargeranges(this,side)        
+            if length(side) == 1
+                side = [side,side]
+            end
             if isempty(this.values)                
             else
-                this.values = [max(1,r(:,1)-side),min(n,r(:,2)+side),r(:,3)];
+                r = this.values;
+                if size(r,2) == 2
+                    r = [max(1,r(:,1)-side(1)),min(n,r(:,2)+side(2))];
+                else
+                    r = [max(1,r(:,1)-side(1)),min(n,r(:,2)+side(2)),r(:,3)];
+                end
+                this.values = r;
             end
         end
 
@@ -174,15 +163,19 @@ classdef ranges
             end
         end
 
-        function r = torangelabel(this)    
-            ra = this.values;
-            assert(size(ra,3) == 2,"should have label");
+        % converts to labeled, or eventually indexed if labels are missing
+        function e = torangelabel(this)
 
-            r = zeros(this.n,1);
-            for I=1:size(ra,1)
-                r(ra(I,1):ra(I,2)) = ra(I,3);
+            if size(this.values,2) == 3
+                r = this.torangeindex()
+            else
+                ra = this.values;
+                r = zeros(this.n,1);
+                for I=1:size(ra,1)
+                    r(ra(I,1):ra(I,2)) = I;
+                end
             end
-        end
+        end              
         
         % returns the target space with the marker of starts
         function r = starts(this)
