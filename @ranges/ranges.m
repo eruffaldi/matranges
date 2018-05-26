@@ -14,7 +14,10 @@ classdef ranges
     properties
         values
         n
-        islabeled
+    end
+    
+    properties (Dependent = true)
+     islabeled
     end
    
     methods
@@ -22,13 +25,13 @@ classdef ranges
         %
         % ranges(values)
         % ranges(values,n)
-        % ranges(values,islabeled)
+        % ranges(values)
         %
         % values is a matrix with ranges along rows and with columns as
         % (start,stop,[label])
         %
         % Length n is used for reconstruction
-        function r = ranges(values,n,islabeled)
+        function r = ranges(values,n)
             if nargin < 2
                 if islogical(values)
                     r = ranges.fromevents(values);
@@ -36,12 +39,8 @@ classdef ranges
                 end
                 n = max(values(:,2));
             end
-            if nargin < 3
-                islabeled = size(values,2) == 3;                
-            end
             r.values = values;
             r.n = n;
-            r.islabeled = islabeled;
         end
         
         % returns the ranges
@@ -49,6 +48,11 @@ classdef ranges
             r = this.values;
         end
         
+        function value = get.islabeled(this)
+            value = size(this.values,2) > 3;
+        end
+        
+        % preserve the values whose length is in range [minv,maxv]
         function r = filterlength(this,minv,maxv)
             L = this.lengths();
             r = this;
@@ -98,7 +102,7 @@ classdef ranges
             n = max(max(b(:,2)),max(a(:,2))); % enlarge
             this.n = n;
             other.n = n;
-            r = ranges.fromlogical(aslogical(this) | aslogical(other));        
+            r = ranges.fromlogical(aslogical(this) | aslogical(other),this.n);        
         end
         
         % returns the lengths of the ranges
@@ -150,7 +154,7 @@ classdef ranges
                 for I=1:size(r,1)
                     e(r(I,1):r(I,2)) = 1;
                 end
-                r = ranges.fromlogical(e);
+                r = ranges.fromlogical(e,this.n);
             end
         end
 
@@ -163,25 +167,32 @@ classdef ranges
         end
         
         function r = torangeindex(this)    
-            ra = this.values;
-
-            r = zeros(this.n,1);
-            for I=1:size(ra,1)
-                r(ra(I,1):ra(I,2)) = I;
-            end
+            this = this.makerangeindexed();
+            r = this.torangelabel();
         end
 
-        % converts to labeled, or eventually indexed if labels are missing
-        function e = torangelabel(this)
+        function this = makerangeindexed(this)    
+            this.values(:,4) = 1:size(this.values,1);
+        end
+        
+        function r = torangemask(this)
+            this = this.makerangemask();
+            r = this.torangelabel();
+        end
 
-            if size(this.values,2) == 3
-                r = this.torangeindex()
-            else
-                ra = this.values;
-                r = zeros(this.n,1);
-                for I=1:size(ra,1)
-                    r(ra(I,1):ra(I,2)) = I;
-                end
+        function this = makerangemask(this)    
+            this.values(:,4) = true(size(this.values,1),1);
+        end
+        
+        % converts to labeled, or eventually indexed if labels are missing
+        function w = torangelabel(this)
+            if this.islabeled == 0
+                this = this.makerangeindexed();
+            end
+            ra = this.values;
+            w = zeros(this.n,1);
+            for I=1:size(ra,1)
+                w(ra(I,1):ra(I,2)) = ra(I,4);
             end
         end              
         
@@ -319,12 +330,20 @@ classdef ranges
         % NOT done: fromstart, fromend
         
         % returns ranges from the events
-        function ret = fromlogical(e)
-            ret = ranges.fromevents(e);
+        function ret = fromlogical(e,n)
+            if nargin == 1
+                n = NaN;
+            end
+            ret = ranges.fromevents(e,n);
         end
         
         % returns ranges from any variation
-        function ret = fromevents(e)
+        function ret = fromevents(e,n)
+            if nargin == 1
+                n = length(e);
+            elseif isnan(n)
+                n = length(e);
+            end
             q = diff(e);
             change = find((abs(q) > 0)); % sorry no tilde in mac
             if e(1) == 0
@@ -337,7 +356,7 @@ classdef ranges
             end
             r = reshape(change,2,length(change)/2)';
             r(:,1) = r(:,1)+1;           
-            ret = ranges(r,length(e),0);
+            ret = ranges(r,n);
         end
         
         % returns ranges from the labels
