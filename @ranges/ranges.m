@@ -58,7 +58,14 @@ classdef ranges
             r = this;
             r.values = r.values(L >= minv & L <= maxv,:);
         end
-        
+
+        % preserve the values whose length is in range [minv,maxv]
+        function this = filterbeginend(this,minstart,maxend)
+            fi = find(this.values(:,1)>=minstart,1,'first');
+            fe = find(this.values(:,1)<=maxend,1,'last');
+            this.values = this.values(fi:fe,:);
+        end
+
         % converts to logical
         function e = logical(this)
             r = this.values;
@@ -359,6 +366,17 @@ classdef ranges
             ret = ranges(r,n);
         end
         
+        function ret = fromstart(s,n)
+            if nargin == 1
+                n = length(s);
+            end
+            r = zeros(length(s),3);
+            r(:,1) = s;
+            r(:,2) = [s(2:end);n];
+            r(:,3) = 1:length(s);
+            ret = ranges(r,n);
+        end
+
         % returns ranges from the labels
         function ret = fromlabels(d)
             if size(d,1) > 1
