@@ -1,11 +1,12 @@
 % Ranges Class
 % ranges manipulation class in Matlab
 %
-% Internal representation: list of (start,inclusive end,label)
+% Internal representation: list of (start,inclusive end,label) plus
+% original length used for rebuilding back and forth
 %
 % External representations for input/output:
-% - list of labels
-% - list of changes (new range when value changes)
+% - array of labels
+% - array of changing points
 % - logical
 %
 % Emanuele Ruffaldi 2011-2018
@@ -17,30 +18,43 @@ classdef ranges
     end
     
     properties (Dependent = true)
-     islabeled
+        islabeled
+        extent
     end
    
     methods
         % constructor 
         %
-        % ranges(values)
-        % ranges(values,n)
-        % ranges(values)
+        % ranges(L,[n])
+        % ranges(A,[n])
+        % ranges(R,[n])
         %
-        % values is a matrix with ranges along rows and with columns as
-        % (start,stop,[label])
+        % L is logical
+        % A is labels
+        % R is ranges values (start,end,label) or (start,end)
         %
         % Length n is used for reconstruction
-        function r = ranges(values,n)
-            if nargin < 2
-                if islogical(values)
-                    r = ranges.fromevents(values);
-                    return;
+        function r = ranges(X,n)
+            if islogical(X)
+                if nargin == 1
+                    n = size(X,1);
                 end
-                n = max(values(:,2));
+                r = ranges.fromlogical(X,n);
+            elseif size(X,2) == 2
+                r.values = X;
+                if nargin == 1
+                    n = max(X(:,2));
+                end
+                r.n = n;
+            elseif size(X,2) == 3
+                r.values = X;
+                if nargin == 1
+                    n = max(X(:,2));
+                end
+                r.n = n;
+            else
+                error('bad input');
             end
-            r.values = values;
-            r.n = n;
         end
         
         % returns the ranges
@@ -48,21 +62,23 @@ classdef ranges
             r = this.values;
         end
         
+        % labeled
         function value = get.islabeled(this)
-            value = size(this.values,2) > 3;
+            value = size(this.values,2) == 3;
         end
         
-        % preserve the values whose length is in range [minv,maxv]
-        function r = filterlength(this,minv,maxv)
+        % preserve the ranges whose length is in range [minlength,maxlength]
+        function r = filterlength(this,minlength,maxlength)
             L = this.lengths();
             r = this;
-            r.values = r.values(L >= minv & L <= maxv,:);
+            r.values = r.values(L >= minlength & L <= maxlength,:);
         end
 
-        % preserve the values whose length is in range [minv,maxv]
+        % filter all ranges inclusively inside [minstart,maxend)
+        % ASSUMES sorted
         function this = filterbeginend(this,minstart,maxend)
             fi = find(this.values(:,1)>=minstart,1,'first');
-            fe = find(this.values(:,1)<=maxend,1,'last');
+            fe = find(this.values(:,2)<=maxend,1,'last');
             this.values = this.values(fi:fe,:);
         end
 
@@ -81,15 +97,22 @@ classdef ranges
         end
         
         % returns extent, that is used for back conversion
-        function n = extent(this)
+        function n = get.extent(this)
             n = this.n;
         end
         
-        function this = setextent(this,n)
+        % changes extent
+        function this = set.extent(this,n)
             this.n = n;
         end
-        
-        % returns list of labels
+
+        % returns the lengths of the ranges
+        function l = lengths(this)
+            r = this.values;
+            l = r(:,2)-r(:,1);
+        end
+
+        % returns list of labels, otherwise if not labeled done empty
         function l = labels(this)
             if size(this.values,2) == 3
                 l = unique(this.values(:,3));
@@ -97,11 +120,8 @@ classdef ranges
                 l = [];
             end
         end    
-    
         
- 
-        
-        % merges two ranges, assuming they are logical        
+        % merges two range sets
         function r = union(this,other)
             assert(this.islabeled == 0,'union only for not labeled');
             a = this.values;
@@ -112,13 +132,7 @@ classdef ranges
             r = ranges.fromlogical(aslogical(this) | aslogical(other),this.n);        
         end
         
-        % returns the lengths of the ranges
-        function l = lengths(this)
-            r = this.values;
-            l = [r(:,2)-r(:,1)+1];
-        end
-        
-        % returns the separation
+        % returns the separation between intervals
         function s = separations(this)
             r = this.values;
             s = [ 0 ; r(2:end,1)-r(1:end-1,2)-1]; 
@@ -127,10 +141,11 @@ classdef ranges
         % function enlarges the ranges by amount
         function this = enlargeranges(this,side)        
             if length(side) == 1
-                side = [side,side]
+                side = [side,side];
             end
             if isempty(this.values)                
             else
+                n = this.n;
                 r = this.values;
                 if size(r,2) == 2
                     r = [max(1,r(:,1)-side(1)),min(n,r(:,2)+side(2))];
@@ -141,30 +156,41 @@ classdef ranges
             end
         end
 
-        % merge ranges that are separated less than th
+        % merge ranges that are separated less than given threshold. 
+        %
+        % IF labeled uses the label of FIRST?
         function r = merge(this,th)
             rin = this.values;
             
-            neg = [rin(1:end-1,2)+1,rin(2:end,1)-1]; % negative part of the ranges
-            l = (neg(:,2)-neg(:,1)+1);
+            if size(rin,2) == 3
+                neg = [rin(1:end-1,2),rin(2:end,1),rin(1:end-1,3)]; % negative using label from first
+            else
+                neg = [rin(1:end-1,2),rin(2:end,1)]; % negative part of the ranges
+            end
+            l = neg(:,2)-neg(:,1); % length of the intervals
             neg = neg(l <= th & l > 0,:); % not empty and longer equal then th
 
             if isempty(neg)
                 r = this;
             else
-                % not a special algorithm just join the ranges and convert back and
-                % front
-                %r = event2ranges(ranges2event([rin;neg]));
                 r  = [rin;neg];
-                n = max(r(:,2));
-                e = zeros(n,1);
-                for I=1:size(r,1)
-                    e(r(I,1):r(I,2)) = 1;
+                if size(r,2) == 3
+                    e = zeros(this.n,1);
+                    for I=1:size(r,1)
+                        e(r(I,1):r(I,2)) = r(I,3);
+                    end
+                    r = ranges.fromlabels(e,this.n);
+                else
+                    e = zeros(this.n,1);
+                    for I=1:size(r,1)
+                        e(r(I,1):r(I,2)) = 1;
+                    end
+                    r = ranges.fromlogical(e,this.n);
                 end
-                r = ranges.fromlogical(e,this.n);
             end
         end
-
+    
+        % return TRUE if the ranges cover all the span [1..n]
         function b = isfull(this)
             if isempty(this.values)
                 b = true;
@@ -173,35 +199,38 @@ classdef ranges
             end
         end
         
-        function r = torangeindex(this)    
-            this = this.makerangeindexed();
-            r = this.torangelabel();
+        % returns FULL array of RANGE INDEX
+        function X = torangeindex(this)    
+            X = makerangeindexed.torangelabel();
         end
 
-        function this = makerangeindexed(this)    
-            this.values(:,4) = 1:size(this.values,1);
+        % returns FULL array of INRANGE
+        function X = torangemask(this)
+            X = this.makerangemask().torangelabel();
         end
         
-        function r = torangemask(this)
-            this = this.makerangemask();
-            r = this.torangelabel();
-        end
-
-        function this = makerangemask(this)    
-            this.values(:,4) = true(size(this.values,1),1);
-        end
-        
-        % converts to labeled, or eventually indexed if labels are missing
-        function w = torangelabel(this)
+        % returns FULL array of LABELS with 0 as default
+        function X = torangelabel(this)
             if this.islabeled == 0
                 this = this.makerangeindexed();
             end
             ra = this.values;
-            w = zeros(this.n,1);
+            X = zeros(this.n,1);
             for I=1:size(ra,1)
-                w(ra(I,1):ra(I,2)) = ra(I,4);
+                X(ra(I,1):ra(I,2)) = ra(I,3);
             end
         end              
+        
+
+        % sets LABEL as the index of the RANGE
+        function this = makerangeindexed(this)    
+            this.values(:,3) = 1:size(this.values,1);
+        end
+        
+        % sets LABEL as the presence of the RANGE
+        function this = makerangemask(this)    
+            this.values(:,3) = true(size(this.values,1),1);
+        end
         
         % returns the target space with the marker of starts
         function r = starts(this)
@@ -212,15 +241,13 @@ classdef ranges
         end
         
         % returns the target space with the marker of ends
-        function r = ends(this)
-            n = this.n;
+        function X = ends(this)
             ra = this.values;
-            r = zeros(n,1);
-            r(ra(:,2)) = 1:size(ra,2);
+            X = zeros(this.n,1);
+            X(ra(:,2)) = 1:size(ra,2);
         end
         
         % applyes a function to all the ranges passing the start and end
-        % indices
         function r = apply(this,fun,isuniform)
             if nargin == 2
                 isuniform = 1;
@@ -239,8 +266,7 @@ classdef ranges
                 end
             end            
         end
-        
-        
+                
         % joints data with nan, e.g. for plot or line
         function [I,J,outsize] = compactwithnan_build(this)            
             S = this.values;
@@ -339,16 +365,14 @@ classdef ranges
         % returns ranges from the events
         function ret = fromlogical(e,n)
             if nargin == 1
-                n = NaN;
+                n = length(e);
             end
             ret = ranges.fromevents(e,n);
         end
         
         % returns ranges from any variation
         function ret = fromevents(e,n)
-            if nargin == 1
-                n = length(e);
-            elseif isnan(n)
+            if nargin == 1 || isnan(n)
                 n = length(e);
             end
             q = diff(e);
@@ -378,7 +402,10 @@ classdef ranges
         end
 
         % returns ranges from the labels
-        function ret = fromlabels(d)
+        function ret = fromlabels(d,n)
+            if nargin < 2
+                n = length(d);
+            end
             if size(d,1) > 1
                 d = d';
             end
@@ -389,7 +416,8 @@ classdef ranges
 
             r = [1,af(1:end-1)+1; af]';
             r(:,3) = d(af);
-            ret = ranges(r,length(d),1);
+            r = r(r(:,3) > 0,:); % exclude 0
+            ret = ranges(r,n);
         end
     end
     
